@@ -564,14 +564,21 @@ func displayRunLog(w io.Writer, jobs []shared.Job, logs logs, onlyFailedLogs boo
 					continue
 				}
 
-				logReader, err := logs.forStep(job.ID, step.Number)
-				if err != nil {
-					return err
-				}
-				defer logReader.Close()
+				err := func() error {
+					logReader, err := logs.forStep(job.ID, step.Number)
+					if err != nil {
+						return err
+					}
+					defer logReader.Close()
 
-				prefix := fmt.Sprintf("%s\t%s\t", job.Name, step.Name)
-				if err := copyLogWithLinePrefix(w, logReader, prefix); err != nil {
+					prefix := fmt.Sprintf("%s\t%s\t", job.Name, step.Name)
+					if err := copyLogWithLinePrefix(w, logReader, prefix); err != nil {
+						return err
+					}
+					return nil
+				}()
+
+				if err != nil {
 					return err
 				}
 			}
