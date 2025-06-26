@@ -1,13 +1,11 @@
 package view
 
 import (
-	"archive/zip"
 	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -177,6 +175,64 @@ func TestNewCmdView(t *testing.T) {
 }
 
 func TestViewRun(t *testing.T) {
+	zipArchive := createZipArchive(t, map[string]string{
+		"0_cool job.txt": heredoc.Doc(`
+			log line 1
+			log line 2
+			log line 3
+			log line 1
+			log line 2
+			log line 3`),
+		"cool job/1_fob the barz.txt": heredoc.Doc(`
+			log line 1
+			log line 2
+			log line 3
+		`),
+		"cool job/2_barz the fob.txt": heredoc.Doc(`
+			log line 1
+			log line 2
+			log line 3
+		`),
+		"1_sad job.txt": heredoc.Doc(`
+			log line 1
+			log line 2
+			log line 3
+			log line 1
+			log line 2
+			log line 3
+		`),
+		"sad job/1_barf the quux.txt": heredoc.Doc(`
+			log line 1
+			log line 2
+			log line 3
+		`),
+		"sad job/2_quuz the barf.txt": heredoc.Doc(`
+			log line 1
+			log line 2
+			log line 3
+		`),
+		"2_cool job with no step logs.txt": heredoc.Doc(`
+			log line 1
+			log line 2
+			log line 3
+		`),
+		"3_sad job with no step logs.txt": heredoc.Doc(`
+			log line 1
+			log line 2
+			log line 3
+		`),
+		"-9999999999_legacy cool job with no step logs.txt": heredoc.Doc(`
+			log line 1
+			log line 2
+			log line 3
+		`),
+		"-9999999999_legacy sad job with no step logs.txt": heredoc.Doc(`
+			log line 1
+			log line 2
+			log line 3
+		`),
+	})
+
 	tests := []struct {
 		name        string
 		httpStubs   func(*httpmock.Registry)
@@ -579,7 +635,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -632,7 +688,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/attempts/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -673,7 +729,7 @@ func TestViewRun(t *testing.T) {
 					httpmock.JSONResponse(shared.SuccessfulRun))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -696,7 +752,7 @@ func TestViewRun(t *testing.T) {
 					httpmock.JSONResponse(shared.SuccessfulRun))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/attempts/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -729,7 +785,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -776,7 +832,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -809,7 +865,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -862,7 +918,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/attempts/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -903,7 +959,7 @@ func TestViewRun(t *testing.T) {
 					httpmock.JSONResponse(shared.FailedRun))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -936,7 +992,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows"),
 					httpmock.JSONResponse(workflowShared.WorkflowsPayload{
@@ -983,7 +1039,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1016,7 +1072,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1057,7 +1113,7 @@ func TestViewRun(t *testing.T) {
 					httpmock.JSONResponse(shared.SuccessfulRun))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1090,7 +1146,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1131,7 +1187,7 @@ func TestViewRun(t *testing.T) {
 					httpmock.JSONResponse(shared.FailedRun))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1164,7 +1220,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1210,7 +1266,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1243,7 +1299,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1289,7 +1345,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1322,7 +1378,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1363,7 +1419,7 @@ func TestViewRun(t *testing.T) {
 					httpmock.JSONResponse(shared.SuccessfulRun))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1397,7 +1453,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1438,7 +1494,7 @@ func TestViewRun(t *testing.T) {
 					httpmock.JSONResponse(shared.FailedRun))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1471,7 +1527,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1517,7 +1573,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1550,7 +1606,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -1596,7 +1652,7 @@ func TestViewRun(t *testing.T) {
 					}))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/1234/logs"),
-					httpmock.FileResponse("./fixtures/run_log.zip"))
+					httpmock.BinaryResponse(zipArchive))
 				reg.Register(
 					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/123"),
 					httpmock.JSONResponse(shared.TestWorkflow))
@@ -2021,268 +2077,6 @@ func TestViewRun(t *testing.T) {
 	}
 }
 
-// Structure of fixture zip file
-// To see the structure of fixture zip file, run:
-// `❯ unzip -lv pkg/cmd/run/view/fixtures/run_log.zip`
-//
-//	run log/
-//	├── cool job/
-//	│   ├── 1_fob the barz.txt
-//	│   └── 2_barz the fob.txt
-//	├── sad job/
-//	│   ├── 1_barf the quux.txt
-//	│   └── 2_quux the barf.txt
-//	├── ad job/
-//	|   └── 1_barf the quux.txt
-//	├── 0_cool job.txt
-//	├── 1_sad job.txt
-//	├── 2_cool job with no step logs.txt
-//	├── 3_sad job with no step logs.txt
-//	├── -9999999999_legacy cool job with no step logs.txt
-//	├── -9999999999_legacy sad job with no step logs.txt
-//	├── 4_cool job with both legacy and new logs.txt
-//	└── -9999999999_cool job with both legacy and new logs.txt
-func Test_attachRunLog(t *testing.T) {
-	tests := []struct {
-		name             string
-		job              shared.Job
-		wantJobMatch     bool
-		wantJobFilename  string
-		wantStepMatch    bool
-		wantStepFilename string
-	}{
-		{
-			name: "matching job name and step number 1",
-			job: shared.Job{
-				Name: "cool job",
-				Steps: []shared.Step{{
-					Name:   "fob the barz",
-					Number: 1,
-				}},
-			},
-			wantJobMatch:     true,
-			wantJobFilename:  "0_cool job.txt",
-			wantStepMatch:    true,
-			wantStepFilename: "cool job/1_fob the barz.txt",
-		},
-		{
-			name: "matching job name and step number 2",
-			job: shared.Job{
-				Name: "cool job",
-				Steps: []shared.Step{{
-					Name:   "barz the fob",
-					Number: 2,
-				}},
-			},
-			wantJobMatch:     true,
-			wantJobFilename:  "0_cool job.txt",
-			wantStepMatch:    true,
-			wantStepFilename: "cool job/2_barz the fob.txt",
-		},
-		{
-			name: "matching job name and step number and mismatch step name",
-			job: shared.Job{
-				Name: "cool job",
-				Steps: []shared.Step{{
-					Name:   "mismatch",
-					Number: 1,
-				}},
-			},
-			wantJobMatch:     true,
-			wantJobFilename:  "0_cool job.txt",
-			wantStepMatch:    true,
-			wantStepFilename: "cool job/1_fob the barz.txt",
-		},
-		{
-			name: "matching job name and mismatch step number",
-			job: shared.Job{
-				Name: "cool job",
-				Steps: []shared.Step{{
-					Name:   "fob the barz",
-					Number: 3,
-				}},
-			},
-			wantJobMatch:    true,
-			wantJobFilename: "0_cool job.txt",
-			wantStepMatch:   false,
-		},
-		{
-			name: "matching job name with no step logs",
-			job: shared.Job{
-				Name: "cool job with no step logs",
-				Steps: []shared.Step{{
-					Name:   "fob the barz",
-					Number: 1,
-				}},
-			},
-			wantJobMatch:    true,
-			wantJobFilename: "2_cool job with no step logs.txt",
-			wantStepMatch:   false,
-		},
-		{
-			name: "matching job name with no step data",
-			job: shared.Job{
-				Name: "cool job with no step logs",
-			},
-			wantJobMatch:    true,
-			wantJobFilename: "2_cool job with no step logs.txt",
-			wantStepMatch:   false,
-		},
-		{
-			name: "matching job name with legacy filename and no step logs",
-			job: shared.Job{
-				Name: "legacy cool job with no step logs",
-				Steps: []shared.Step{{
-					Name:   "fob the barz",
-					Number: 1,
-				}},
-			},
-			wantJobMatch:    true,
-			wantJobFilename: "-9999999999_legacy cool job with no step logs.txt",
-			wantStepMatch:   false,
-		},
-		{
-			name: "matching job name with legacy filename and no step data",
-			job: shared.Job{
-				Name: "legacy cool job with no step logs",
-			},
-			wantJobMatch:    true,
-			wantJobFilename: "-9999999999_legacy cool job with no step logs.txt",
-			wantStepMatch:   false,
-		},
-		{
-			name: "matching job name with both normal and legacy filename",
-			job: shared.Job{
-				Name: "cool job with both legacy and new logs",
-			},
-			wantJobMatch:    true,
-			wantJobFilename: "4_cool job with both legacy and new logs.txt",
-			wantStepMatch:   false,
-		},
-		{
-			name: "one job name is a suffix of another",
-			job: shared.Job{
-				Name: "ad job",
-				Steps: []shared.Step{{
-					Name:   "barf the quux",
-					Number: 1,
-				}},
-			},
-			wantStepMatch:    true,
-			wantStepFilename: "ad job/1_barf the quux.txt",
-		},
-		{
-			name: "escape metacharacters in job name",
-			job: shared.Job{
-				Name: "metacharacters .+*?()|[]{}^$ job",
-				Steps: []shared.Step{{
-					Name:   "fob the barz",
-					Number: 0,
-				}},
-			},
-			wantJobMatch:  false,
-			wantStepMatch: false,
-		},
-		{
-			name: "mismatching job name",
-			job: shared.Job{
-				Name: "mismatch",
-				Steps: []shared.Step{{
-					Name:   "fob the barz",
-					Number: 1,
-				}},
-			},
-			wantJobMatch:  false,
-			wantStepMatch: false,
-		},
-		{
-			name: "job name with forward slash matches dir with slash removed",
-			job: shared.Job{
-				Name: "cool job / with slash",
-				Steps: []shared.Step{{
-					Name:   "fob the barz",
-					Number: 1,
-				}},
-			},
-			wantJobMatch:  false,
-			wantStepMatch: true,
-			// not the double space in the dir name, as the slash has been removed
-			wantStepFilename: "cool job  with slash/1_fob the barz.txt",
-		},
-		{
-			name: "job name with colon matches dir with colon removed",
-			job: shared.Job{
-				Name: "cool job : with colon",
-				Steps: []shared.Step{{
-					Name:   "fob the barz",
-					Number: 1,
-				}},
-			},
-			wantJobMatch:     false,
-			wantStepMatch:    true,
-			wantStepFilename: "cool job  with colon/1_fob the barz.txt",
-		},
-		{
-			name: "Job name with really long name (over the ZIP limit)",
-			job: shared.Job{
-				Name: "thisisnineteenchars_thisisnineteenchars_thisisnineteenchars_thisisnineteenchars_thisisnineteenchars_",
-				Steps: []shared.Step{{
-					Name:   "Long Name Job",
-					Number: 1,
-				}},
-			},
-			wantJobMatch:     false,
-			wantStepMatch:    true,
-			wantStepFilename: "thisisnineteenchars_thisisnineteenchars_thisisnineteenchars_thisisnineteenchars_thisisnine/1_Long Name Job.txt",
-		},
-		{
-			name: "Job name that would be truncated by the C# server to split a grapheme",
-			job: shared.Job{
-				Name: "Emoji Test 😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅",
-				Steps: []shared.Step{{
-					Name:   "Emoji Job",
-					Number: 1,
-				}},
-			},
-			wantJobMatch:     false,
-			wantStepMatch:    true,
-			wantStepFilename: "Emoji Test 😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅😅�/1_Emoji Job.txt",
-		},
-	}
-
-	run_log_zip_reader, err := zip.OpenReader("./fixtures/run_log.zip")
-	require.NoError(t, err)
-	defer run_log_zip_reader.Close()
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			jobs := []shared.Job{tt.job}
-
-			attachRunLog(&run_log_zip_reader.Reader, jobs)
-
-			t.Logf("Job details: ")
-
-			job := jobs[0]
-
-			jobLog := job.Log
-			jobLogPresent := jobLog != nil
-			require.Equal(t, tt.wantJobMatch, jobLogPresent, "job log not present")
-			if jobLogPresent {
-				require.Equal(t, tt.wantJobFilename, jobLog.Name, "job log filename mismatch")
-			}
-
-			for _, step := range job.Steps {
-				stepLog := step.Log
-				stepLogPresent := stepLog != nil
-				require.Equal(t, tt.wantStepMatch, stepLogPresent, "step log not present")
-				if stepLogPresent {
-					require.Equal(t, tt.wantStepFilename, stepLog.Name, "step log filename mismatch")
-				}
-			}
-		})
-	}
-}
-
 var barfTheFobLogOutput = heredoc.Doc(`
 cool job	barz the fob	log line 1
 cool job	barz the fob	log line 2
@@ -2382,9 +2176,8 @@ func TestRunLog(t *testing.T) {
 		cacheDir := t.TempDir()
 		rlc := RunLogCache{cacheDir: cacheDir}
 
-		f, err := os.Open("./fixtures/run_log.zip")
-		require.NoError(t, err)
-		defer f.Close()
+		raw := createZipArchive(t, map[string]string{"foo": "bar"})
+		f := bytes.NewReader(raw)
 
 		require.NoError(t, rlc.Create("key", f))
 
@@ -2392,5 +2185,6 @@ func TestRunLog(t *testing.T) {
 		require.NoError(t, err)
 		defer zipReader.Close()
 		require.NotEmpty(t, zipReader.File)
+		require.Equal(t, zipReader.File[0].Name, "foo")
 	})
 }
