@@ -2185,6 +2185,6 @@ func TestRunLog(t *testing.T) {
 		require.NoError(t, err)
 		defer zipReader.Close()
 		require.NotEmpty(t, zipReader.File)
-		require.Equal(t, zipReader.File[0].Name, "foo")
+		require.Equal(t, "foo", zipReader.File[0].Name)
 	})
 }
