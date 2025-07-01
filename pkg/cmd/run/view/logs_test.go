@@ -146,7 +146,7 @@ func TestApiLogFetcher(t *testing.T) {
 	}
 }
 
-func TestGetLogs(t *testing.T) {
+func TestGetLogMap(t *testing.T) {
 	tests := []struct {
 		name         string
 		job          shared.Job
@@ -526,9 +526,9 @@ func TestGetLogs(t *testing.T) {
 
 			httpClient := &http.Client{Transport: reg}
 
-			logs := getLogs(tt.zipReader, httpClient, ghrepo.New("OWNER", "REPO"), []shared.Job{tt.job})
+			logMap := getLogMap(tt.zipReader, httpClient, ghrepo.New("OWNER", "REPO"), []shared.Job{tt.job})
 
-			jobLogReader, err := logs.forJob(tt.job.ID)
+			jobLogReader, err := logMap.forJob(tt.job.ID)
 			require.NoError(t, err)
 
 			if tt.wantJobLog != "" {
@@ -538,7 +538,7 @@ func TestGetLogs(t *testing.T) {
 			}
 
 			for i, wantStepLog := range tt.wantStepLogs {
-				stepLogReader, err := logs.forStep(tt.job.ID, 1+i) // Step numbers start from 1
+				stepLogReader, err := logMap.forStep(tt.job.ID, 1+i) // Step numbers start from 1
 
 				switch want := wantStepLog.(type) {
 				case error:

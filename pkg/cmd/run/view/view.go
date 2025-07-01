@@ -323,7 +323,7 @@ func runView(opts *ViewOptions) error {
 		return displayRunLog(
 			opts.IO.Out,
 			jobs,
-			getLogs(&runLogZip.Reader, httpClient, repo, jobs),
+			getLogMap(&runLogZip.Reader, httpClient, repo, jobs),
 			opts.LogFailed,
 		)
 	}
@@ -536,7 +536,7 @@ func promptForJob(prompter shared.Prompter, cs *iostreams.ColorScheme, jobs []sh
 	return nil, nil
 }
 
-func displayRunLog(w io.Writer, jobs []shared.Job, logs logs, onlyFailedLogs bool) error {
+func displayRunLog(w io.Writer, jobs []shared.Job, lm logMap, onlyFailedLogs bool) error {
 	for _, job := range jobs {
 		if onlyFailedLogs && !shared.IsFailureState(job.Conclusion) {
 			continue
@@ -549,7 +549,7 @@ func displayRunLog(w io.Writer, jobs []shared.Job, logs logs, onlyFailedLogs boo
 		// in which case we fall back to print the entire job run log.
 		hasStepLogs := slices.ContainsFunc(job.Steps, func(step shared.Step) bool {
 			// if any step has a log, then we consider that as having all step logs.
-			return logs.hasStep(job.ID, step.Number)
+			return lm.hasStep(job.ID, step.Number)
 		})
 
 		// If we have step logs then we are going to print them.
@@ -557,7 +557,7 @@ func displayRunLog(w io.Writer, jobs []shared.Job, logs logs, onlyFailedLogs boo
 			steps := job.Steps
 			sort.Sort(steps)
 			for _, step := range steps {
-				if !logs.hasStep(job.ID, step.Number) {
+				if !lm.hasStep(job.ID, step.Number) {
 					continue
 				}
 				if onlyFailedLogs && !shared.IsFailureState(step.Conclusion) {
@@ -565,7 +565,7 @@ func displayRunLog(w io.Writer, jobs []shared.Job, logs logs, onlyFailedLogs boo
 				}
 
 				err := func() error {
-					logReader, err := logs.forStep(job.ID, step.Number)
+					logReader, err := lm.forStep(job.ID, step.Number)
 					if err != nil {
 						return err
 					}
@@ -599,7 +599,7 @@ func displayRunLog(w io.Writer, jobs []shared.Job, logs logs, onlyFailedLogs boo
 		// in that case, we're sending API requests sequentially and waiting for
 		// them to complete before proceeding to the next job. This can be
 		// improved by doing them concurrently.
-		logReader, err := logs.forJob(job.ID)
+		logReader, err := lm.forJob(job.ID)
 		if err != nil {
 			return err
 		}

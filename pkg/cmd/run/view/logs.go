@@ -57,20 +57,20 @@ func (f *apiLogFetcher) GetLog() (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-// logs is a collection of log fetchers for jobs and steps
-type logs struct {
+// logMap is a collection of log fetchers for jobs and steps
+type logMap struct {
 	jobs  map[int64]logFetcher
 	steps map[string]logFetcher
 }
 
-func newLogs() *logs {
-	return &logs{
+func newLogMap() *logMap {
+	return &logMap{
 		jobs:  make(map[int64]logFetcher),
 		steps: make(map[string]logFetcher),
 	}
 }
 
-func (l *logs) forJob(jobID int64) (io.ReadCloser, error) {
+func (l *logMap) forJob(jobID int64) (io.ReadCloser, error) {
 	f, ok := l.jobs[jobID]
 	if !ok {
 		return nil, fmt.Errorf("no log fetcher for job %d", jobID)
@@ -78,7 +78,7 @@ func (l *logs) forJob(jobID int64) (io.ReadCloser, error) {
 	return f.GetLog()
 }
 
-func (l *logs) forStep(jobID int64, stepNumber int) (io.ReadCloser, error) {
+func (l *logMap) forStep(jobID int64, stepNumber int) (io.ReadCloser, error) {
 	logFetcherKey := fmt.Sprintf("%d/%d", jobID, stepNumber)
 	f, ok := l.steps[logFetcherKey]
 	if !ok {
@@ -87,22 +87,22 @@ func (l *logs) forStep(jobID int64, stepNumber int) (io.ReadCloser, error) {
 	return f.GetLog()
 }
 
-func (l *logs) hasStep(jobID int64, stepNumber int) bool {
+func (l *logMap) hasStep(jobID int64, stepNumber int) bool {
 	logFetcherKey := fmt.Sprintf("%d/%d", jobID, stepNumber)
 	_, ok := l.steps[logFetcherKey]
 	return ok
 }
 
-func (l *logs) addStep(jobID int64, stepNumber int, lf logFetcher) {
+func (l *logMap) addStep(jobID int64, stepNumber int, lf logFetcher) {
 	logFetcherKey := fmt.Sprintf("%d/%d", jobID, stepNumber)
 	l.steps[logFetcherKey] = lf
 }
 
-func (l *logs) addJob(jobID int64, lf logFetcher) {
+func (l *logMap) addJob(jobID int64, lf logFetcher) {
 	l.jobs[jobID] = lf
 }
 
-// getLogs populates a logs struct with appropriate log fetchers based on the
+// getLogMap populates a logs struct with appropriate log fetchers based on the
 // provided zip file and list of jobs.
 //
 // For any job/step that does not have a log in the zip file, it will create an
@@ -134,8 +134,8 @@ func (l *logs) addJob(jobID int64, lf logFetcher) {
 //     The service right now tries to get logs and use an ordinal in a loop.
 //     However, if it doesn't get the logs, it falls back to an old service
 //     where the ID can apparently be negative.
-func getLogs(rlz *zip.Reader, httpClient *http.Client, repo ghrepo.Interface, jobs []shared.Job) logs {
-	logs := *newLogs()
+func getLogMap(rlz *zip.Reader, httpClient *http.Client, repo ghrepo.Interface, jobs []shared.Job) logMap {
+	lm := *newLogMap()
 
 	for _, job := range jobs {
 		var jobLogFetcher logFetcher
@@ -159,21 +159,21 @@ func getLogs(rlz *zip.Reader, httpClient *http.Client, repo ghrepo.Interface, jo
 				jobID:      job.ID,
 			}
 		}
-		logs.addJob(job.ID, jobLogFetcher)
+		lm.addJob(job.ID, jobLogFetcher)
 
 		for _, step := range job.Steps {
 			// Note that there is no API endpoint to fetch step logs, like there
 			// is for job logs. So, we just try to find the step log in the ZIP
 			// archive, and if we don't find it, we just skip it.
 			if zf := matchFileInZIPArchive(rlz, stepLogFilenameRegexp(job, step)); zf != nil {
-				logs.addStep(job.ID, step.Number, &zipLogFetcher{
+				lm.addStep(job.ID, step.Number, &zipLogFetcher{
 					File: zf,
 				})
 			}
 		}
 	}
 
-	return logs
+	return lm
 }
 
 const JOB_NAME_MAX_LENGTH = 90
